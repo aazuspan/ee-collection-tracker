@@ -1,0 +1,47 @@
+[project]
+name = "ee-collection-tracker"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Aaron Zuspan", email = "aa.zuspan@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "earthengine-api>=1.7.45",
+    "geopandas>=1.2.0",
+    "humanize>=4.16.0",
+    "loguru>=0.7.3",
+    "numpy>=2.5.3",
+    "pandas>=3.0.6",
+    "snakemd>=2.4.1",
+]
+
+[project.scripts]
+update-landsat = "ee_collection_tracker.datasets.landsat:update_landsat"
+update-sentinel2 = "ee_collection_tracker.datasets.sentinel2:update_sentinel2"
+update-hls = "ee_collection_tracker.datasets.hls:update_hls"
+update-readme = "ee_collection_tracker.readme:update_readme"
+
+[build-system]
+requires = ["uv_build>=0.11.29,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "poethepoet>=0.48.0",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
+
+[tool.ruff.lint]
+select = ["E", "I", "F", "B", "FA", "UP", "ISC", "PT", "Q", "RET", "SIM", "PERF"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.poe.tasks]
+lint = "ruff check . --fix"
+format = "ruff format ."
+check = ["lint", "format"]
+test = "pytest"
