@@ -1,0 +1,44 @@
+{
+  "landsat": {
+    "label": "Landsat",
+    "data": "landsat.csv",
+    "grid": "grid/wrs2.geojson",
+    "index": [
+      "PATH",
+      "ROW"
+    ],
+    "featureLabel": "Path {PATH}, Row {ROW}",
+    "collections": [
+      "LANDSAT/LC08/C02/T1",
+      "LANDSAT/LC08/C02/T1_L2",
+      "LANDSAT/LC09/C02/T1",
+      "LANDSAT/LC09/C02/T1_L2"
+    ]
+  },
+  "sentinel2": {
+    "label": "Sentinel-2",
+    "data": "sentinel2.csv",
+    "grid": "grid/mgrs.geojson",
+    "index": [
+      "MGRS_TILE"
+    ],
+    "featureLabel": "{MGRS_TILE}",
+    "collections": [
+      "COPERNICUS/S2",
+      "COPERNICUS/S2_SR"
+    ]
+  },
+  "hls": {
+    "label": "HLS",
+    "data": "hls.csv",
+    "grid": "grid/mgrs.geojson",
+    "index": [
+      "MGRS_TILE"
+    ],
+    "featureLabel": "{MGRS_TILE}",
+    "collections": [
+      "NASA/HLS/HLSS30/v002_RAW2",
+      "NASA/HLS/HLSL30/v002_RAW2"
+    ]
+  }
+}

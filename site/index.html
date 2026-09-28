@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Earth Engine Collection Tracker</title>
+  <meta name="description" content="Latest available Earth Engine imagery by grid cell.">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <div id="map"></div>
+
+  <aside id="panel">
+    <button id="panel-toggle" type="button" aria-expanded="true" aria-controls="panel-body">
+      <span id="panel-title" class="skeleton">Loading collection</span>
+      <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <div id="panel-body">
+      <div>
+        <label>
+          <span>Dataset</span>
+          <select id="dataset" class="skeleton" disabled></select>
+        </label>
+        <label>
+          <span>Collection</span>
+          <select id="collection" class="skeleton" disabled></select>
+        </label>
+
+        <div id="legend">
+          <h2>Days since latest image</h2>
+          <!-- Upper bounds (in days) and colors for binning image age, read by app.js. -->
+          <ul id="legend-items">
+            <li data-max="1" style="--color: #f0f921"><span class="swatch"></span>&lt; 1<span class="count skeleton">0,000</span></li>
+            <li data-max="3" style="--color: #fdb42f"><span class="swatch"></span>1 – 3<span class="count skeleton">0,000</span></li>
+            <li data-max="8" style="--color: #ed7953"><span class="swatch"></span>3 – 8<span class="count skeleton">0,000</span></li>
+            <li data-max="16" style="--color: #cc4778"><span class="swatch"></span>8 – 16<span class="count skeleton">0,000</span></li>
+            <li data-max="32" style="--color: #9c179e"><span class="swatch"></span>16 – 32<span class="count skeleton">0,000</span></li>
+            <li data-max="Infinity" style="--color: #5c01a6"><span class="swatch"></span>&gt; 32<span class="count skeleton">0,000</span></li>
+          </ul>
+        </div>
+
+        <footer>
+          <span id="status" class="skeleton">Updated 00 hours ago</span>
+          <a href="https://github.com/aazuspan/ee-collection-tracker">Source</a>
+        </footer>
+      </div>
+    </div>
+  </aside>
+</body>
+</html>
