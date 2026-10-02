@@ -4,7 +4,7 @@
 
 This repository tracks the the availability of selected Earth Engine collections with daily updates. Explore the latest acquisition on the [interactive map](https://aazuspan.github.io/ee-collection-tracker/).
 
-*This README was generated on 2026-10-02 06:26:39.*
+*This README was generated on 2026-10-02 23:44:00.*
 
 ## Collection summary
 
@@ -12,13 +12,13 @@ The table below shows the most recent acquisition `system:time_start` for each t
 
 | Collection ID                 | Last acquisition    | Last update         | Newest asset |
 | ----------------------------- | ------------------- | ------------------- | ------------ |
-| **LANDSAT/LC08/C02/T1**       | 2026-09-27 07:29:01 | 2026-10-02 06:19:27 | 4 days       |
-| **LANDSAT/LC08/C02/T1_L2**    | 2026-09-24 00:15:47 | 2026-10-02 06:19:27 | 8 days       |
-| **LANDSAT/LC09/C02/T1**       | 2026-10-01 02:54:24 | 2026-10-02 06:19:27 | a day        |
-| **LANDSAT/LC09/C02/T1_L2**    | 2026-09-29 22:57:21 | 2026-10-02 06:19:27 | 2 days       |
-| **COPERNICUS/S2**             | 2026-10-02 04:26:22 | 2026-10-02 06:22:09 | 2 hours      |
-| **COPERNICUS/S2_SR**          | 2026-10-02 04:26:22 | 2026-10-02 06:22:09 | 2 hours      |
-| **NASA/HLS/HLSS30/v002_RAW2** | 2026-09-29 23:57:39 | 2026-10-02 06:26:39 | 2 days       |
-| **NASA/HLS/HLSL30/v002_RAW2** | 2026-09-29 23:52:42 | 2026-10-02 06:26:39 | 2 days       |
+| **LANDSAT/LC08/C02/T1**       | 2026-09-27 07:29:01 | 2026-10-02 23:36:39 | 5 days       |
+| **LANDSAT/LC08/C02/T1_L2**    | 2026-09-27 05:39:22 | 2026-10-02 23:36:39 | 5 days       |
+| **LANDSAT/LC09/C02/T1**       | 2026-10-02 03:38:51 | 2026-10-02 23:36:39 | 20 hours     |
+| **LANDSAT/LC09/C02/T1_L2**    | 2026-09-30 23:46:36 | 2026-10-02 23:36:39 | a day        |
+| **COPERNICUS/S2**             | 2026-10-02 21:19:20 | 2026-10-02 23:39:57 | 2 hours      |
+| **COPERNICUS/S2_SR**          | 2026-10-02 20:01:49 | 2026-10-02 23:39:57 | 4 hours      |
+| **NASA/HLS/HLSS30/v002_RAW2** | 2026-09-30 23:56:21 | 2026-10-02 23:43:59 | a day        |
+| **NASA/HLS/HLSL30/v002_RAW2** | 2026-09-30 23:44:12 | 2026-10-02 23:43:59 | a day        |
 
 Harmonized Sentinel-2 collections are derived from the corresponding `COPERNICUS` collections above. Landsat TOA products are derived from the corresponding `C02/T1` collections.
