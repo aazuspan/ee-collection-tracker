@@ -17,8 +17,10 @@ from ee_collection_tracker.utils import initialize_service_account
 
 class HLSS(MGRSDataset):
     label = "HLS"
-    # NASA/HLS/HLS*30/v002 are derived from these with additional processing that slows queries
     collection_ids = ("NASA/HLS/HLSS30/v002_RAW2",)
+    derived_collection_ids = {
+        "NASA/HLS/HLSS30/v002_RAW2": "NASA/HLS/HLSS30/v002",
+    }
     data_path = Path("site/data/hls.csv")
     _mgrs_property: str = "MGRS_TILE_ID"
     _mgrs_column: str = "MGRS_TILE"
@@ -28,8 +30,10 @@ class HLSS(MGRSDataset):
 
 class HLSL(MGRSDataset):
     label = "HLS"
-    # NASA/HLS/HLS*30/v002 are derived from these with additional processing that slows queries
     collection_ids = ("NASA/HLS/HLSL30/v002_RAW2",)
+    derived_collection_ids = {
+        "NASA/HLS/HLSL30/v002_RAW2": "NASA/HLS/HLSL30/v002",
+    }
     data_path = Path("site/data/hls.csv")
     _mgrs_property: str = "MGRS_TILE_ID"
     _mgrs_column: str = "MGRS_TILE"
