@@ -45,3 +45,4 @@ lint = "ruff check . --fix"
 format = "ruff format ."
 check = ["lint", "format"]
 test = "pytest"
+dev = "uv run python -m http.server -d site"
