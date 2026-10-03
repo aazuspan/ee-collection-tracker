@@ -31,8 +31,34 @@
           <select id="collection" class="skeleton" disabled></select>
         </label>
 
-        <div id="legend">
-          <h2>Days since latest image</h2>
+        <details id="filters" class="section">
+          <summary>
+            <svg class="icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"/></svg>
+            <h2>Filter</h2>
+            <span id="filters-active" class="marker" title="Filters active" hidden></span>
+            <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </summary>
+          <label>
+            <span>Acquired on or after (UTC)</span>
+            <span class="input-row">
+              <input id="min-date" type="date">
+              <button id="min-date-clear" type="button" aria-label="Clear minimum date" hidden>
+                <svg class="icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </span>
+          </label>
+        </details>
+
+        <details id="legend" class="section" open>
+          <summary>
+            <svg class="icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+            <h2>Days since latest image</h2>
+            <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </summary>
           <!-- Upper bounds (in days) and colors for binning image age, read by app.js. -->
           <ul id="legend-items">
             <li data-max="1" style="--color: #f0f921"><span class="swatch"></span>&lt; 1<span class="count skeleton">0,000</span></li>
@@ -42,7 +68,7 @@
             <li data-max="32" style="--color: #9c179e"><span class="swatch"></span>16 – 32<span class="count skeleton">0,000</span></li>
             <li data-max="Infinity" style="--color: #5c01a6"><span class="swatch"></span>&gt; 32<span class="count skeleton">0,000</span></li>
           </ul>
-        </div>
+        </details>
 
         <footer>
           <span id="status" class="skeleton">

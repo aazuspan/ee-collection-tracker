@@ -19,6 +19,10 @@ const now = Date.now() / 1000;
 const datasetSelect = document.getElementById("dataset");
 const collectionSelect = document.getElementById("collection");
 const statusEl = document.getElementById("status");
+const minDateInput = document.getElementById("min-date");
+const minDateClear = document.getElementById("min-date-clear");
+const filtersEl = document.getElementById("filters");
+const filtersActive = document.getElementById("filters-active");
 
 // Lucide icon paths (https://lucide.dev) shown alongside the status text.
 const ICONS = {
@@ -60,6 +64,12 @@ let datasetId = DATASETS[params.get("dataset")] ? params.get("dataset") : Object
 let collection = DATASETS[datasetId].collections.includes(params.get("collection"))
   ? params.get("collection")
   : DATASETS[datasetId].collections[0];
+// Earliest acquisition time to show, in seconds since the Unix epoch (0 to show all).
+let minTime = 0;
+
+setMinDate(params.get("after"));
+minDateInput.max = new Date().toISOString().slice(0, 10);
+filtersEl.open = minTime > 0;
 
 const map = new maplibregl.Map({
   container: "map",
@@ -86,6 +96,12 @@ map.addControl(new maplibregl.NavigationControl(), "top-right");
 
 function formatDate(seconds) {
   return new Date(seconds * 1000).toISOString().slice(0, 19).replace("T", " ");
+}
+
+// Parse a `YYYY-MM-DD` date as UTC midnight in seconds, or 0 if missing or invalid.
+function parseDate(value) {
+  const ms = /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") ? Date.parse(`${value}T00:00:00Z`) : NaN;
+  return Number.isNaN(ms) ? 0 : ms / 1000;
 }
 
 function ageDays(seconds) {
@@ -115,7 +131,13 @@ function fillColor() {
   return expr;
 }
 
-const hasImages = () => [">", ["get", collection], 0];
+// Show cells with images acquired on or after the minimum date.
+const isVisible = () => [
+  "all",
+  [">", ["get", collection], 0],
+  [">=", ["get", collection], minTime],
+];
+const isVisibleTime = (t) => t > 0 && t >= minTime;
 
 function populateSelect(select, options, selected) {
   select.replaceChildren(
@@ -148,11 +170,13 @@ function updateUrl() {
   const url = new URL(location);
   url.searchParams.set("dataset", datasetId);
   url.searchParams.set("collection", collection);
+  if (minTime) url.searchParams.set("after", minDateInput.value);
+  else url.searchParams.delete("after");
   history.replaceState(null, "", url);
 }
 
 function updateSummary(geojson) {
-  const valid = geojson.features.map((f) => f.properties[collection]).filter((t) => t > 0);
+  const valid = geojson.features.map((f) => f.properties[collection]).filter(isVisibleTime);
   const latest = valid.length ? Math.max(...valid) : 0;
 
   const counts = AGE_BINS.map(() => 0);
@@ -250,12 +274,23 @@ async function selectDataset(id) {
 function selectCollection(c) {
   collection = c;
   map.setPaintProperty("cells-fill", "fill-color", fillColor());
-  map.setFilter("cells-fill", hasImages());
-  map.setFilter("cells-line", hasImages());
-  updateSummary(cache[datasetId].geojson);
-  updateUrl();
+  applyFilter();
   panelTitle.textContent = c;
   panelTitle.classList.remove("skeleton");
+}
+
+function applyFilter() {
+  map.setFilter("cells-fill", isVisible());
+  map.setFilter("cells-line", isVisible());
+  if (cache[datasetId]) updateSummary(cache[datasetId].geojson);
+  updateUrl();
+}
+
+function setMinDate(value) {
+  minTime = parseDate(value);
+  minDateInput.value = minTime ? value : "";
+  minDateClear.hidden = !minTime;
+  filtersActive.hidden = !minTime;
 }
 
 map.on("style.load", () => {
@@ -296,6 +331,15 @@ map.on("load", async () => {
   );
   datasetSelect.addEventListener("change", (e) => selectDataset(e.target.value).catch(showError));
   collectionSelect.addEventListener("change", (e) => selectCollection(e.target.value));
+  minDateInput.addEventListener("change", (e) => {
+    setMinDate(e.target.value);
+    applyFilter();
+  });
+  minDateClear.addEventListener("click", () => {
+    setMinDate("");
+    applyFilter();
+    minDateInput.focus();
+  });
 
   selectDataset(datasetId).catch(showError);
 });
