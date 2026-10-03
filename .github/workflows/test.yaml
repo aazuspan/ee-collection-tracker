@@ -1,0 +1,32 @@
+name: Test
+
+on:
+  workflow_dispatch:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Skip automated data update commits. These are pushed with GITHUB_TOKEN and
+    # shouldn't trigger push events anyway, but guard explicitly in case that changes.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.head_commit.author.name != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: 3.13
+
+    - name: Run tests
+      run: |
+        uv run pytest

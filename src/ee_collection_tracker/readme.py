@@ -20,7 +20,7 @@ def update_readme() -> None:
 
 
 def add_badges(doc: snakemd.Document) -> None:
-    workflows = {"Update": "update.yaml", "Deploy": "pages.yaml"}
+    workflows = {"Update": "update.yaml", "Deploy": "pages.yaml", "Test": "test.yaml"}
 
     workflow_root = "https://github.com/aazuspan/ee-collection-tracker/actions/workflows"
     badges = [
