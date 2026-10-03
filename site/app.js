@@ -353,20 +353,19 @@ function showError(err) {
 // Hover highlight and click popups.
 let hoveredId = null;
 
-map.on("mousemove", (e) => {
-  const [feature] = map.queryRenderedFeatures(e.point, { layers: ["cells-fill"] });
-  const id = feature ? feature.id : null;
+function setHovered(id) {
   if (id === hoveredId) return;
   if (hoveredId !== null) map.setFeatureState({ source: SOURCE, id: hoveredId }, { hover: false });
   if (id !== null) map.setFeatureState({ source: SOURCE, id }, { hover: true });
   hoveredId = id;
   map.getCanvas().style.cursor = id !== null ? "pointer" : "";
-});
+}
 
-map.on("click", (e) => {
-  const [feature] = map.queryRenderedFeatures(e.point, { layers: ["cells-fill"] });
-  if (!feature) return;
+map.on("mousemove", "cells-fill", (e) => setHovered(e.features[0].id));
+map.on("mouseleave", "cells-fill", () => setHovered(null));
 
+map.on("click", "cells-fill", (e) => {
+  const [feature] = e.features;
   const p = feature.properties;
   const t = p[collection];
   const body = `${formatDate(t)} UTC<br><span class="muted">${ageDays(t).toFixed(1)} days ago</span>`;
