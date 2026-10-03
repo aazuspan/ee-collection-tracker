@@ -19,6 +19,14 @@ const now = Date.now() / 1000;
 const datasetSelect = document.getElementById("dataset");
 const collectionSelect = document.getElementById("collection");
 const statusEl = document.getElementById("status");
+
+// Lucide icon paths (https://lucide.dev) shown alongside the status text.
+const ICONS = {
+  clock: '<path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/>',
+  "triangle-alert":
+    '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>' +
+    '<path d="M12 9v4"/><path d="M12 17h.01"/>',
+};
 const panel = document.getElementById("panel");
 const panelToggle = document.getElementById("panel-toggle");
 const panelBody = document.getElementById("panel-body");
@@ -118,6 +126,18 @@ function populateSelect(select, options, selected) {
 }
 
 // Show skeletons in place of the status and legend counts while a dataset loads.
+function setStatus(icon, text) {
+  if (!text) return statusEl.replaceChildren();
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "icon");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "14");
+  svg.setAttribute("height", "14");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = ICONS[icon];
+  statusEl.replaceChildren(svg, text);
+}
+
 function setLoading(loading) {
   for (const el of [statusEl, ...AGE_BINS.map((bin) => bin.countEl)]) {
     el.classList.toggle("skeleton", loading);
@@ -222,9 +242,7 @@ async function selectDataset(id) {
   setLoading(true);
   const { geojson, updated } = await loadDataset(id);
   map.getSource(SOURCE).setData(geojson);
-  statusEl.textContent = updated
-    ? `Updated ${timeAgo(updated)}`
-    : "";
+  setStatus("clock", updated ? `Updated ${timeAgo(updated)}` : "");
   selectCollection(collection);
   setLoading(false);
 }
@@ -284,7 +302,7 @@ map.on("load", async () => {
 
 function showError(err) {
   console.error(err);
-  statusEl.textContent = err.message;
+  setStatus("triangle-alert", err.message);
   statusEl.classList.remove("skeleton");
 }
 
