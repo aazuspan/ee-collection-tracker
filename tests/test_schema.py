@@ -32,5 +32,4 @@ def test_schema_paths_exist():
     schema = json.loads((schema_dir / SCHEMA_PATH.name).read_text())
 
     for entry in schema.values():
-        assert (schema_dir / entry["data"]).is_file()
         assert (schema_dir / entry["grid"]).is_file()

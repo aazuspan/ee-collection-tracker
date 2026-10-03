@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from conftest import FakeDataset, query_result
 
-from ee_collection_tracker.datasets._dataset import TIME_START_COL, CollectionSummary
+from ee_collection_tracker.datasets._dataset import _NODATA, TIME_START_COL, CollectionSummary
 
 DAY = 86400
 
@@ -21,49 +21,53 @@ def test_minimum_latency():
     assert summary.minimum_latency() == timedelta(days=2, hours=12)
 
 
-def test_get_diff(fake_dataset: FakeDataset):
-    old = pd.DataFrame({"ID": [1, 2, 3, 4], "A": [0, 100, DAY, DAY]})
-    new = pd.DataFrame({"ID": [1, 2, 3, 5], "A": [DAY, 100, 3 * DAY, DAY]})
+def test_get_mixed_diff(fake_dataset: FakeDataset):
+    old = pd.Series([DAY, DAY, _NODATA, _NODATA])
+    new = pd.Series([DAY, DAY * 3, DAY, DAY * 4])
+    diff = fake_dataset._get_diff(old, new)
 
-    diff = fake_dataset._get_diff(old, new, time_col="A")
-
-    # 1 and 5 were added, 3 was updated, 4 was removed, 2 is unchanged
     assert diff.added == 2
     assert diff.updated == 1
-    assert diff.removed == 1
-    assert diff.min_update_days == pytest.approx(2)
-    assert diff.max_update_days == pytest.approx(2)
+    assert diff.smallest_update_days == pytest.approx(2)
+    assert diff.largest_update_days == pytest.approx(2)
+    assert diff.oldest_added == datetime.fromtimestamp(DAY, UTC)
+    assert diff.newest_added == datetime.fromtimestamp(DAY * 4, UTC)
+
+
+def test_get_diff_from_empty(fake_dataset: FakeDataset):
+    old = pd.Series([_NODATA] * 5)
+    new = pd.Series([_NODATA] + [DAY, DAY, DAY, DAY * 5])
+
+    diff = fake_dataset._get_diff(old, new)
+
+    assert diff.added == 4
+    assert diff.updated == 0
+    assert diff.smallest_update_days == pytest.approx(0)
+    assert diff.largest_update_days == pytest.approx(0)
+    assert diff.oldest_added == datetime.fromtimestamp(DAY, UTC)
+    assert diff.newest_added == datetime.fromtimestamp(DAY * 5, UTC)
 
 
 def test_get_diff_update_range(fake_dataset: FakeDataset):
-    old = pd.DataFrame({"ID": [1, 2], "A": [DAY, DAY]})
-    new = pd.DataFrame({"ID": [1, 2], "A": [2 * DAY, 5 * DAY]})
+    old = pd.Series([DAY, DAY])
+    new = pd.Series([2 * DAY, 5 * DAY])
 
-    diff = fake_dataset._get_diff(old, new, time_col="A")
+    diff = fake_dataset._get_diff(old, new)
 
     assert diff.updated == 2
-    assert diff.min_update_days == pytest.approx(1)
-    assert diff.max_update_days == pytest.approx(4)
+    assert diff.smallest_update_days == pytest.approx(1)
+    assert diff.largest_update_days == pytest.approx(4)
 
 
 def test_get_diff_no_changes(fake_dataset: FakeDataset):
-    state = pd.DataFrame({"ID": [1, 2], "A": [DAY, 0]})
+    state = pd.Series([DAY, 0])
+    diff = fake_dataset._get_diff(state, state.copy())
 
-    diff = fake_dataset._get_diff(state, state.copy(), time_col="A")
-
-    assert (diff.added, diff.removed, diff.updated) == (0, 0, 0)
-    assert diff.min_update_days == 0
-    assert diff.max_update_days == 0
-
-
-def test_get_diff_missing_old_column(fake_dataset: FakeDataset):
-    """On an initial run the grid has no column for the collection yet."""
-    old = pd.DataFrame({"ID": [1, 2]})
-    new = pd.DataFrame({"ID": [1], "A": [DAY]})
-
-    diff = fake_dataset._get_diff(old, new, time_col="A")
-
-    assert (diff.added, diff.removed, diff.updated) == (1, 0, 0)
+    assert (diff.added, diff.updated) == (0, 0)
+    assert diff.oldest_added is None
+    assert diff.newest_added is None
+    assert diff.smallest_update_days == 0
+    assert diff.largest_update_days == 0
 
 
 def read_data(dataset: FakeDataset) -> pd.DataFrame:
@@ -71,17 +75,16 @@ def read_data(dataset: FakeDataset) -> pd.DataFrame:
 
 
 def test_update_collection(fake_dataset: FakeDataset):
-    grid = pd.DataFrame({"ID": [1, 2, 3], "A": [0, 50, 50], "other": ["x", "y", "z"]})
-    fake_dataset.results["A"] = query_result([2, 3, 99], [100, 50, 100])
+    grid = pd.DataFrame({"ID": [1, 2, 3], "A": [10, 20, 30], "other": ["x", "y", "z"]})
+    fake_dataset.results["A"] = query_result([2, 3, 99], [40, 1, 60])
 
-    result = fake_dataset._update_collection(collection="A", collection_id="A", grid=grid)
+    result = fake_dataset._update_collection(collection="A", collection_id="A", old_state=grid)
 
     # Existing column is replaced without suffixes, and other columns are kept
     assert list(result.columns) == ["ID", "other", "A"]
-    # New rows are added and rows missing from the query are left empty
+    # Missing rows are retained, new timestamps replace old, new rows are added
     assert result["ID"].tolist() == [1, 2, 3, 99]
-    assert result["A"].tolist()[1:] == [100, 50, 100]
-    assert pd.isna(result["A"].iloc[0])
+    assert result["A"].tolist() == [10, 40, 1, 60]
 
 
 def test_update_initializes(fake_dataset: FakeDataset):
@@ -143,6 +146,16 @@ def test_save_drops_empty_rows(fake_dataset: FakeDataset):
 
     # Rows are sorted, empty rows are dropped, and missing timestamps are filled with 0
     assert data.to_dict("list") == {"ID": [2, 3], "A": [0, 100], "B": [200, 0]}
+
+
+def test_save_sorts_columns(fake_dataset: FakeDataset):
+    fake_dataset.save(
+        pd.DataFrame({"B": [None, None, 200], "ID": [3, 1, 2], "A": [100, None, None]})
+    )
+    data = read_data(fake_dataset)
+
+    # Columns are sorted index first, then alpha collections
+    assert list(data.columns) == ["ID", "A", "B"]
 
 
 class OtherFakeDataset(FakeDataset):

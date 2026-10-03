@@ -6,6 +6,7 @@ from pathlib import Path
 
 import ee
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from loguru import logger
 
@@ -32,10 +33,11 @@ class CollectionSummary:
 @dataclass
 class DatasetDiff:
     added: int
-    removed: int
     updated: int
-    min_update_days: float
-    max_update_days: float
+    largest_update_days: float
+    smallest_update_days: float
+    newest_added: datetime | None
+    oldest_added: datetime | None
 
 
 class Dataset(ABC):
@@ -81,24 +83,24 @@ class Dataset(ABC):
         is_initial_run = not self.is_initialized()
         verb = "Initializing" if is_initial_run else "Updating"
         try:
-            # Try loading the grid, even if it's not initialized. If two datasets share the same
+            # Try loading the data, even if it's not initialized. If two datasets share the same
             # data file, the one that's initialized second should append into the file rather
             # than overwriting it.
-            data_grid = self.load_data_grid()
+            data = self.load_data()
         except Exception:
-            data_grid = pd.DataFrame(columns=self.index_columns)
+            data = pd.DataFrame(columns=self.index_columns)
 
         for i, collection_id in enumerate(self.collection_ids):
             logger.info(f"{verb} collection {i + 1} of {len(self.collection_ids)}: {collection_id}")
 
             collection = self._get_collection(collection_id)
-            data_grid = self._update_collection(
+            data = self._update_collection(
                 collection=collection,
                 collection_id=collection_id,
-                grid=data_grid,
+                old_state=data,
             )
 
-        self.save(data_grid)
+        self.save(data)
         self.write_schema()
 
     def _get_collection(self, collection_id: str) -> ee.ImageCollection:
@@ -121,7 +123,7 @@ class Dataset(ABC):
         except Exception:
             return False
 
-    def load_data_grid(self) -> gpd.GeoDataFrame:
+    def load_data(self) -> gpd.GeoDataFrame:
         """Load the pre-initialized data grid.
 
         Sub-classes can override to implement additional pre-processing.
@@ -182,6 +184,7 @@ class Dataset(ABC):
         # written by other datasets that share the data file.
         collection_columns = [c for c in data.columns if c not in self.index_columns]
         nan_rows = data[data[collection_columns].isna().all(axis=1)]
+        sorted_columns = list(self.index_columns) + sorted(collection_columns)
         data = (
             data.drop(nan_rows.index)
             # Fill missing timestamps with the no-data value and cast to integer seconds
@@ -189,6 +192,8 @@ class Dataset(ABC):
             .astype({c: int for c in collection_columns})
             # Sort by the index columns to maintain a consistent order
             .sort_values(list(self.index_columns))
+            # Ensure columns are in sorted order
+            .loc[:, sorted_columns]
         )
 
         with open(self.data_path, "w") as f:
@@ -233,9 +238,9 @@ class Dataset(ABC):
         *,
         collection: ee.ImageCollection,
         collection_id: str,
-        grid: gpd.GeoDataFrame,
+        old_state: gpd.GeoDataFrame,
     ) -> gpd.GeoDataFrame:
-        """Query the given collection and insert timestamps into the grid.
+        """Query the given collection and insert timestamps into the old_state.
 
         Timestamps are in integer epoch seconds using the `collection_id` as the key.
         """
@@ -247,61 +252,77 @@ class Dataset(ABC):
         # compare accurately with the previous rounded state.
         new_state[collection_id] = datetime_column_to_epoch_seconds(new_state[collection_id])
 
+        # On an initial run, the old state won't contain the collection ID column. Populate it so we
+        # get a consistent merge output.
+        if collection_id not in old_state.columns:
+            old_state = old_state.assign(**{collection_id: _NODATA})
+
+        # Merge the old and new states. Other collections are kept as-is, while the active
+        # collection is split into an old and new column that we can diff and resolve.
+        old_col, new_col = f"{collection_id}_old", f"{collection_id}_new"
+        outer_state = old_state.merge(
+            new_state,
+            on=self.index_columns,
+            how="outer",
+            suffixes=("_old", "_new"),
+        ).fillna({old_col: _NODATA, new_col: _NODATA})
+
         # Record any changes between the old and new states
-        diff = self._get_diff(grid, new_state, time_col=collection_id)
+        diff = self._get_diff(
+            old_state=outer_state[f"{collection_id}_old"],
+            new_state=outer_state[f"{collection_id}_new"],
+        )
         if diff.updated != 0:
             logger.info(
                 f"Updated {diff.updated} assets "
-                f"({diff.min_update_days:.0f} - {diff.max_update_days:.0f} days)"
+                f"({diff.smallest_update_days:.0f} - {diff.largest_update_days:.0f} days)"
             )
         if diff.added != 0:
-            logger.info(f"Added {diff.added} assets")
-        if diff.removed != 0:
-            logger.info(f"Removed {diff.removed} assets")
-        if diff.updated == 0 and diff.added == 0 and diff.removed == 0:
+            logger.info(
+                f"Added {diff.added} assets "
+                f"({diff.oldest_added:%Y-%m-%d %H:%M:%S} - {diff.newest_added:%Y-%m-%d %H:%M:%S})"
+            )
+
+        if diff.updated == 0 and diff.added == 0:
             logger.info("No changes")
 
-        # Drop the old timestamp column to avoid appending a suffix
-        return grid.drop(columns=[collection_id], errors="ignore").merge(
-            new_state,
-            on=self.index_columns,
-            # Since we update as we iterate over collections, an outer join ensures we retain
-            # existing tiles and add any new ones from the current collection.
-            how="outer",
+        # Carry old timestamps forward if the new timestamp is null to prevent dropping records.
+        # Since updates run on a subset of the full collection, it's possible that an infrequently
+        # acquired cell is captured on the initial run and missed on a subsequent update.
+        outer_state[collection_id] = np.where(
+            outer_state[new_col].eq(_NODATA), outer_state[old_col], outer_state[new_col]
         )
+        return outer_state.drop(columns=[old_col, new_col])
 
-    def _get_diff(
-        self, old_state: pd.DataFrame, new_state: pd.DataFrame, time_col: str
-    ) -> DatasetDiff:
-        # The collection won't be in the old state yet on an initial run
-        if time_col not in old_state.columns:
-            old_state = old_state.assign(**{time_col: _NODATA})
+    def _get_diff(self, old_state: pd.Series, new_state: pd.Series) -> DatasetDiff:
+        # Assets that became valid timestamps are additions
+        added = (old_state == _NODATA) & (new_state != _NODATA)
+        num_added = added.sum()
+        if num_added == 0:
+            oldest_added = None
+            newest_added = None
+        else:
+            oldest_added = datetime.fromtimestamp(new_state[added].min(), UTC)
+            newest_added = datetime.fromtimestamp(new_state[added].max(), UTC)
 
-        merged = old_state.merge(
-            new_state,
-            on=self.index_columns,
-            suffixes=("_old", "_new"),
-            how="outer",
-        ).fillna({f"{time_col}_old": _NODATA, f"{time_col}_new": _NODATA})
-
-        # Remove unchanged rows
-        changed = merged[merged[f"{time_col}_old"] != merged[f"{time_col}_new"]]
-        old_time = changed[f"{time_col}_old"]
-        new_time = changed[f"{time_col}_new"]
-
-        updated = (old_time != _NODATA) & (new_time > old_time)
-        added = (old_time == _NODATA) & (new_time != _NODATA)
-        removed = (old_time != _NODATA) & (new_time == _NODATA)
-        # Timestamps are already in elapsed seconds
-        min_update_days = (new_time[updated] - old_time[updated]).min() / 86400
-        max_update_days = (new_time[updated] - old_time[updated]).max() / 86400
+        # Assets that changed timestamps are updates
+        updated = (old_state != _NODATA) & (new_state != _NODATA) & (new_state != old_state)
+        num_updated = updated.sum()
+        if num_updated == 0:
+            smallest_update_days = 0
+            biggest_update_days = 0
+        else:
+            updated_delta = new_state[updated] - old_state[updated]
+            smallest_update_days = updated_delta.min() / 86400.0
+            biggest_update_days = updated_delta.max() / 86400.0
 
         return DatasetDiff(
-            added=added.sum(),
-            removed=removed.sum(),
-            updated=updated.sum(),
-            min_update_days=min_update_days if updated.sum() != 0 else 0,
-            max_update_days=max_update_days if updated.sum() != 0 else 0,
+            added=num_added,
+            updated=num_updated,
+            smallest_update_days=smallest_update_days,
+            largest_update_days=biggest_update_days,
+            oldest_added=oldest_added,
+            newest_added=newest_added,
         )
 
     def summarize(self) -> list[CollectionSummary]:
@@ -309,7 +330,7 @@ class Dataset(ABC):
         if not self.is_initialized():
             return []
 
-        grid = self.load_data_grid()
+        grid = self.load_data()
         last_update = self.read_last_data_update()
         collection_columns = [col for col in grid.columns if col in self.collection_ids]
 
