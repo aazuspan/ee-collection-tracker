@@ -51,6 +51,9 @@ class Dataset(ABC):
     collection_ids: tuple[str]
     """IDs of image collections that are independently tracked within the dataset."""
 
+    derived_collection_ids: dict[str, str]
+    """Mapping from base collection IDs to their derived counterparts, if any."""
+
     index_dtypes: dict[str, str]
     """Column names and dtypes that identify the tracked unit, e.g. a grid cell."""
 

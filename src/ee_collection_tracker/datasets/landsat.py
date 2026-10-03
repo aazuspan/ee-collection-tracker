@@ -28,6 +28,12 @@ class Landsat(Dataset):
         "LANDSAT/LC09/C02/T1",
         "LANDSAT/LC09/C02/T1_L2",
     )
+    # TOA collections are derived on-the-fly from the Level 1 raw collections, which makes them
+    # more expensive to query, so we only track the raw collections.
+    derived_collection_ids = {
+        "LANDSAT/LC08/C02/T1": "LANDSAT/LC08/C02/T1_TOA",
+        "LANDSAT/LC09/C02/T1": "LANDSAT/LC09/C02/T1_TOA",
+    }
     index_dtypes = {_PATH_COL: "uint8", _ROW_COL: "uint8"}
 
     def _get_collection(self, collection_id: str) -> ee.ImageCollection:
