@@ -70,6 +70,76 @@ select {
   border-radius: 4px;
 }
 
+input[type="date"] {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* Collapsible panel sections. */
+.section {
+  margin-bottom: 16px;
+}
+
+.section summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.section:last-of-type { margin-bottom: 0; }
+.section[open] summary { margin-bottom: 8px; }
+.section summary::-webkit-details-marker { display: none; }
+.section summary h2 { margin: 0; }
+
+.section .chevron {
+  margin-left: auto;
+  transform: rotate(-90deg);
+  transition: transform 0.2s;
+}
+
+.section[open] .chevron { transform: none; }
+
+/* Dot indicating that a section has active settings. */
+.marker {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.marker[hidden] { display: none; }
+
+label .input-row {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+#min-date-clear {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#min-date-clear:hover { color: var(--fg); }
+#min-date-clear[hidden] { display: none; }
+
 #summary {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -228,5 +298,5 @@ a { color: var(--accent); }
     right: 50px;
   }
 
-  #summary, #legend { margin-bottom: 0; }
+  #summary { margin-bottom: 0; }
 }
