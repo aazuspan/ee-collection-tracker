@@ -9,7 +9,6 @@ However, they still write into the same output file as if they were a shared col
 from pathlib import Path
 
 import ee
-from loguru import logger
 
 from ee_collection_tracker.datasets._mgrs import MGRSDataset
 from ee_collection_tracker.utils import initialize_service_account
@@ -51,11 +50,6 @@ class HLSL(MGRSDataset):
 
 
 def update_hls():
-    logger.info("Initializing service account")
     initialize_service_account()
-
-    logger.info("Updating HLSL")
     HLSL().update()
-
-    logger.info("Updating HLSS")
     HLSS().update()

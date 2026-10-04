@@ -2,7 +2,6 @@ from pathlib import Path
 
 import ee
 import pandas as pd
-from loguru import logger
 
 from ee_collection_tracker.datasets._dataset import TIME_START_COL, Dataset
 from ee_collection_tracker.utils import initialize_service_account
@@ -83,8 +82,5 @@ def _get_landsat_metadata(image: ee.Image) -> ee.Feature:
 
 
 def update_landsat():
-    logger.info("Initializing service account")
     initialize_service_account()
-
-    logger.info("Updating Landsat")
     Landsat().update()

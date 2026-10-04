@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import ee
-from loguru import logger
 
 from ee_collection_tracker.datasets._mgrs import MGRSDataset
 from ee_collection_tracker.utils import initialize_service_account
@@ -35,8 +34,5 @@ class Sentinel2(MGRSDataset):
 
 
 def update_sentinel2():
-    logger.info("Initializing service account")
     initialize_service_account()
-
-    logger.info("Updating Sentinel-2")
     Sentinel2().update()

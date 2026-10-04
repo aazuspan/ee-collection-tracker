@@ -117,16 +117,18 @@ class Dataset(ABC):
         """
         is_initial_run = not self.is_initialized()
         verb = "Initializing" if is_initial_run else "Updating"
+        logger.info(f"{verb} {self.label}")
         try:
             # Try loading the data, even if it's not initialized. If two datasets share the same
             # data file, the one that's initialized second should append into the file rather
             # than overwriting it.
             data = self.load_data()
         except Exception:
+            logger.debug("Creating empty dataset")
             data = pd.DataFrame(columns=self.index_columns)
 
         for i, collection_id in enumerate(self.collection_ids):
-            logger.info(f"{verb} collection {i + 1} of {len(self.collection_ids)}: {collection_id}")
+            logger.info(f"Collection {i + 1} of {len(self.collection_ids)}: {collection_id}")
 
             collection = self._get_collection(collection_id)
             data = self._update_collection(
@@ -244,8 +246,10 @@ class Dataset(ABC):
         """
         try:
             schema = json.loads(self.schema_path.read_text())
+            logger.debug(f"Loaded schema from {self.schema_path}")
         except FileNotFoundError:
             schema = {}
+            logger.debug(f"Initializing new schema at {self.schema_path}")
 
         def relative_path(path: Path) -> str:
             return (
