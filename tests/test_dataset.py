@@ -7,9 +7,13 @@ import pandas as pd
 import pytest
 from conftest import FakeDataset, query_result
 
-from ee_collection_tracker.datasets._dataset import _NODATA, TIME_START_COL, CollectionSummary
-
-DAY = 86400
+from ee_collection_tracker.datasets._dataset import (
+    DAY,
+    NODATA,
+    TIME_START_COL,
+    CollectionSummary,
+    DatasetDiff,
+)
 
 
 def test_minimum_latency():
@@ -21,10 +25,10 @@ def test_minimum_latency():
     assert summary.minimum_latency() == timedelta(days=2, hours=12)
 
 
-def test_get_mixed_diff(fake_dataset: FakeDataset):
-    old = pd.Series([DAY, DAY, _NODATA, _NODATA])
+def test_mixed_dataset_diff():
+    old = pd.Series([DAY, DAY, NODATA, NODATA])
     new = pd.Series([DAY, DAY * 3, DAY, DAY * 4])
-    diff = fake_dataset._get_diff(old, new)
+    diff = DatasetDiff.from_states(old, new)
 
     assert diff.added == 2
     assert diff.updated == 1
@@ -34,11 +38,11 @@ def test_get_mixed_diff(fake_dataset: FakeDataset):
     assert diff.newest_added == datetime.fromtimestamp(DAY * 4, UTC)
 
 
-def test_get_diff_from_empty(fake_dataset: FakeDataset):
-    old = pd.Series([_NODATA] * 5)
-    new = pd.Series([_NODATA] + [DAY, DAY, DAY, DAY * 5])
+def test_empty_dataset_diff():
+    old = pd.Series([NODATA] * 5)
+    new = pd.Series([NODATA] + [DAY, DAY, DAY, DAY * 5])
 
-    diff = fake_dataset._get_diff(old, new)
+    diff = DatasetDiff.from_states(old, new)
 
     assert diff.added == 4
     assert diff.updated == 0
@@ -48,20 +52,32 @@ def test_get_diff_from_empty(fake_dataset: FakeDataset):
     assert diff.newest_added == datetime.fromtimestamp(DAY * 5, UTC)
 
 
-def test_get_diff_update_range(fake_dataset: FakeDataset):
+def test_update_dataset_diff():
     old = pd.Series([DAY, DAY])
     new = pd.Series([2 * DAY, 5 * DAY])
 
-    diff = fake_dataset._get_diff(old, new)
+    diff = DatasetDiff.from_states(old, new)
 
     assert diff.updated == 2
     assert diff.smallest_update_days == pytest.approx(1)
     assert diff.largest_update_days == pytest.approx(4)
 
 
-def test_get_diff_no_changes(fake_dataset: FakeDataset):
+def test_negative_update_dataset_diff():
+    old = pd.Series([DAY, DAY])
+    new = pd.Series([2 * DAY, -5 * DAY])
+
+    diff = DatasetDiff.from_states(old, new)
+
+    assert diff.updated == 2
+    # This shouldn't happen in practice, but we should handle it if it does
+    assert diff.smallest_update_days == pytest.approx(-6)
+    assert diff.largest_update_days == pytest.approx(1)
+
+
+def test_identical_dataset_diff():
     state = pd.Series([DAY, 0])
-    diff = fake_dataset._get_diff(state, state.copy())
+    diff = DatasetDiff.from_states(state, state.copy())
 
     assert (diff.added, diff.updated) == (0, 0)
     assert diff.oldest_added is None

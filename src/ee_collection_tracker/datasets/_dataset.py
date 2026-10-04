@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Self
 
 import ee
 import geopandas as gpd
@@ -13,8 +14,9 @@ from loguru import logger
 from ee_collection_tracker.utils import datetime_column_to_epoch_seconds
 
 TIME_START_COL = "TIME_START"
-_NODATA = 0
+NODATA = 0
 _UPDATE_HEADER = "# updated:"
+DAY = 86_400
 
 SCHEMA_PATH = Path("site/data/datasets.json")
 """Path to the schema shared by all datasets, describing how the frontend should load them."""
@@ -38,6 +40,39 @@ class DatasetDiff:
     smallest_update_days: float
     newest_added: datetime | None
     oldest_added: datetime | None
+
+    @classmethod
+    def from_states(cls, t1: pd.Series, t2: pd.Series) -> Self:
+        """Compute a diff between old and new timestamps."""
+        # Timestamps that became valid are additions
+        added = (t1 == NODATA) & (t2 != NODATA)
+        num_added = added.sum()
+        if num_added == 0:
+            oldest_added = None
+            newest_added = None
+        else:
+            oldest_added = datetime.fromtimestamp(t2[added].min(), UTC)
+            newest_added = datetime.fromtimestamp(t2[added].max(), UTC)
+
+        # Timestamps that changed are updates
+        updated = (t1 != NODATA) & (t2 != NODATA) & (t2 != t1)
+        num_updated = updated.sum()
+        if num_updated == 0:
+            smallest_update_days = 0.0
+            biggest_update_days = 0.0
+        else:
+            updated_delta = t2[updated] - t1[updated]
+            smallest_update_days = updated_delta.min() / DAY
+            biggest_update_days = updated_delta.max() / DAY
+
+        return cls(
+            added=num_added,
+            updated=num_updated,
+            smallest_update_days=smallest_update_days,
+            largest_update_days=biggest_update_days,
+            oldest_added=oldest_added,
+            newest_added=newest_added,
+        )
 
 
 class Dataset(ABC):
@@ -188,7 +223,7 @@ class Dataset(ABC):
         data = (
             data.drop(nan_rows.index)
             # Fill missing timestamps with the no-data value and cast to integer seconds
-            .fillna({c: _NODATA for c in collection_columns})
+            .fillna({c: NODATA for c in collection_columns})
             .astype({c: int for c in collection_columns})
             # Sort by the index columns to maintain a consistent order
             .sort_values(list(self.index_columns))
@@ -255,7 +290,7 @@ class Dataset(ABC):
         # On an initial run, the old state won't contain the collection ID column. Populate it so we
         # get a consistent merge output.
         if collection_id not in old_state.columns:
-            old_state = old_state.assign(**{collection_id: _NODATA})
+            old_state = old_state.assign(**{collection_id: NODATA})
 
         # Merge the old and new states. Other collections are kept as-is, while the active
         # collection is split into an old and new column that we can diff and resolve.
@@ -265,12 +300,12 @@ class Dataset(ABC):
             on=self.index_columns,
             how="outer",
             suffixes=("_old", "_new"),
-        ).fillna({old_col: _NODATA, new_col: _NODATA})
+        ).fillna({old_col: NODATA, new_col: NODATA})
 
         # Record any changes between the old and new states
-        diff = self._get_diff(
-            old_state=outer_state[f"{collection_id}_old"],
-            new_state=outer_state[f"{collection_id}_new"],
+        diff = DatasetDiff.from_states(
+            t1=outer_state[f"{collection_id}_old"],
+            t2=outer_state[f"{collection_id}_new"],
         )
         if diff.updated != 0:
             logger.info(
@@ -290,40 +325,9 @@ class Dataset(ABC):
         # Since updates run on a subset of the full collection, it's possible that an infrequently
         # acquired cell is captured on the initial run and missed on a subsequent update.
         outer_state[collection_id] = np.where(
-            outer_state[new_col].eq(_NODATA), outer_state[old_col], outer_state[new_col]
+            outer_state[new_col].eq(NODATA), outer_state[old_col], outer_state[new_col]
         )
         return outer_state.drop(columns=[old_col, new_col])
-
-    def _get_diff(self, old_state: pd.Series, new_state: pd.Series) -> DatasetDiff:
-        # Assets that became valid timestamps are additions
-        added = (old_state == _NODATA) & (new_state != _NODATA)
-        num_added = added.sum()
-        if num_added == 0:
-            oldest_added = None
-            newest_added = None
-        else:
-            oldest_added = datetime.fromtimestamp(new_state[added].min(), UTC)
-            newest_added = datetime.fromtimestamp(new_state[added].max(), UTC)
-
-        # Assets that changed timestamps are updates
-        updated = (old_state != _NODATA) & (new_state != _NODATA) & (new_state != old_state)
-        num_updated = updated.sum()
-        if num_updated == 0:
-            smallest_update_days = 0
-            biggest_update_days = 0
-        else:
-            updated_delta = new_state[updated] - old_state[updated]
-            smallest_update_days = updated_delta.min() / 86400.0
-            biggest_update_days = updated_delta.max() / 86400.0
-
-        return DatasetDiff(
-            added=num_added,
-            updated=num_updated,
-            smallest_update_days=smallest_update_days,
-            largest_update_days=biggest_update_days,
-            oldest_added=oldest_added,
-            newest_added=newest_added,
-        )
 
     def summarize(self) -> list[CollectionSummary]:
         """Return a summary of each collection."""
