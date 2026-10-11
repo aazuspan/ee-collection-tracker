@@ -12,7 +12,10 @@ const AGE_BINS = [...document.querySelectorAll("#legend-items li")].map((li) => 
 // of the latest image timestamp per collection (seconds since the Unix epoch, 0 if no
 // images) to a GeoJSON grid that shares its index columns.
 const SCHEMA_URL = new URL("data/datasets.json", location);
+// Loaded on demand to test which cells intersect an uploaded area of interest.
+const TURF_URL = "https://cdn.jsdelivr.net/npm/@turf/boolean-intersects@7.2.0/+esm";
 const SOURCE = "grid";
+const AOI_SOURCE = "aoi";
 const DAY = 86400;
 const now = Date.now() / 1000;
 
@@ -23,6 +26,14 @@ const minDateInput = document.getElementById("min-date");
 const minDateClear = document.getElementById("min-date-clear");
 const filtersEl = document.getElementById("filters");
 const filtersActive = document.getElementById("filters-active");
+const aoiFile = document.getElementById("aoi-file");
+const aoiName = document.getElementById("aoi-name");
+const aoiClear = document.getElementById("aoi-clear");
+const aoiError = document.getElementById("aoi-error");
+const summaryCount = document.getElementById("summary-count");
+const summaryLatency = document.getElementById("summary-latency");
+const summaryOldest = document.getElementById("summary-oldest");
+const summaryNewest = document.getElementById("summary-newest");
 
 // Lucide icon paths (https://lucide.dev) shown alongside the status text.
 const ICONS = {
@@ -66,6 +77,11 @@ let collection = DATASETS[datasetId].collections.includes(params.get("collection
   : DATASETS[datasetId].collections[0];
 // Earliest acquisition time to show, in seconds since the Unix epoch (0 to show all).
 let minTime = 0;
+// Uploaded area of interest, with the keys of intersecting cells cached by grid (null if none).
+let aoi = null;
+let booleanIntersects;
+// The selected dataset as displayed, limited to the area of interest.
+let shown = null;
 
 setMinDate(params.get("after"));
 minDateInput.max = new Date().toISOString().slice(0, 10);
@@ -161,7 +177,8 @@ function setStatus(icon, text) {
 }
 
 function setLoading(loading) {
-  for (const el of [statusEl, ...AGE_BINS.map((bin) => bin.countEl)]) {
+  const summaryEls = [summaryCount, summaryLatency, summaryOldest, summaryNewest];
+  for (const el of [statusEl, ...summaryEls, ...AGE_BINS.map((bin) => bin.countEl)]) {
     el.classList.toggle("skeleton", loading);
   }
 }
@@ -175,9 +192,29 @@ function updateUrl() {
   history.replaceState(null, "", url);
 }
 
-function updateSummary(geojson) {
+function median(values) {
+  const sorted = values.toSorted((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function setSummaryDate(el, seconds) {
+  el.textContent = seconds ? formatDate(seconds).slice(0, 10) : "–";
+  el.title = seconds ? `${formatDate(seconds)} UTC` : "";
+}
+
+// Summarize the latest images of visible cells. Latency is the time from acquisition to the
+// dataset's last update.
+function updateSummary({ geojson, updated }) {
   const valid = geojson.features.map((f) => f.properties[collection]).filter(isVisibleTime);
   const latest = valid.length ? Math.max(...valid) : 0;
+  const oldest = valid.length ? Math.min(...valid) : 0;
+  const latency = valid.length && updated ? median(valid.map((t) => updated - t)) : null;
+
+  summaryCount.textContent = valid.length.toLocaleString();
+  summaryLatency.textContent = latency === null ? "–" : `${(latency / DAY).toFixed(1)} days`;
+  setSummaryDate(summaryOldest, oldest);
+  setSummaryDate(summaryNewest, latest);
 
   const counts = AGE_BINS.map(() => 0);
   for (const t of valid) {
@@ -262,11 +299,28 @@ async function selectDataset(id) {
   const { collections } = DATASETS[id];
   if (!collections.includes(collection)) collection = collections[0];
   populateSelect(collectionSelect, collections.map((c) => [c, c]), collection);
+  return showDataset();
+}
 
+// Incremented per load, so a slow load doesn't replace a newer selection.
+let loadCount = 0;
+
+async function showDataset() {
+  const count = ++loadCount;
   setLoading(true);
-  const { geojson, updated } = await loadDataset(id);
-  map.getSource(SOURCE).setData(geojson);
-  setStatus("clock", updated ? `Updated ${timeAgo(updated)}` : "");
+  const loaded = await loadDataset(datasetId);
+  const keys = aoi && (await intersectingKeys(datasetId));
+  if (count !== loadCount) return;
+
+  // Cells outside the area of interest are dropped rather than filtered, so they're excluded
+  // from the summary too.
+  const { index } = DATASETS[datasetId];
+  const features = keys
+    ? loaded.geojson.features.filter((f) => keys.has(indexKey(index, f.properties)))
+    : loaded.geojson.features;
+  shown = { ...loaded, geojson: { type: "FeatureCollection", features } };
+  map.getSource(SOURCE).setData(shown.geojson);
+  setStatus("clock", loaded.updated ? `Updated ${timeAgo(loaded.updated)}` : "");
   selectCollection(collection);
   setLoading(false);
 }
@@ -282,7 +336,7 @@ function selectCollection(c) {
 function applyFilter() {
   map.setFilter("cells-fill", isVisible());
   map.setFilter("cells-line", isVisible());
-  if (cache[datasetId]) updateSummary(cache[datasetId].geojson);
+  if (shown) updateSummary(shown);
   updateUrl();
 }
 
@@ -290,7 +344,125 @@ function setMinDate(value) {
   minTime = parseDate(value);
   minDateInput.value = minTime ? value : "";
   minDateClear.hidden = !minTime;
-  filtersActive.hidden = !minTime;
+  updateFiltersActive();
+}
+
+function updateFiltersActive() {
+  filtersActive.hidden = !minTime && !aoi;
+}
+
+// Bounding box of nested coordinate arrays as [west, south, east, north].
+function coordBounds(coords, bounds = [Infinity, Infinity, -Infinity, -Infinity]) {
+  if (typeof coords[0] === "number") {
+    bounds[0] = Math.min(bounds[0], coords[0]);
+    bounds[1] = Math.min(bounds[1], coords[1]);
+    bounds[2] = Math.max(bounds[2], coords[0]);
+    bounds[3] = Math.max(bounds[3], coords[1]);
+  } else {
+    for (const c of coords) coordBounds(c, bounds);
+  }
+  return bounds;
+}
+
+const boundsIntersect = (a, b) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
+
+// Flatten a GeoJSON object of any type into its non-empty, non-collection geometries.
+function geometries(geojson) {
+  switch (geojson?.type) {
+    case "FeatureCollection":
+      return (geojson.features ?? []).flatMap(geometries);
+    case "Feature":
+      return geometries(geojson.geometry);
+    case "GeometryCollection":
+      return (geojson.geometries ?? []).flatMap(geometries);
+    case "Point":
+    case "MultiPoint":
+    case "LineString":
+    case "MultiLineString":
+    case "Polygon":
+    case "MultiPolygon":
+      return geojson.coordinates?.length ? [geojson] : [];
+    default:
+      return [];
+  }
+}
+
+// Keys of a dataset's grid cells that intersect the area of interest, computed once per grid
+// using bounding boxes to skip exact tests on distant cells.
+function intersectingKeys(id) {
+  const { grid, index } = DATASETS[id];
+  aoi.keys[grid] ??= loadGrid(new URL(grid, SCHEMA_URL)).then((gridGeojson) => {
+    const keys = new Set();
+    for (const f of gridGeojson.features) {
+      const bounds = coordBounds(f.geometry.coordinates);
+      const hit = aoi.parts.some(
+        (part) => boundsIntersect(bounds, part.bounds) && booleanIntersects(f.geometry, part.geometry)
+      );
+      if (hit) keys.add(indexKey(index, f.properties));
+    }
+    return keys;
+  });
+  return aoi.keys[grid];
+}
+
+async function setAoi(file) {
+  // Allow re-selecting the same file after it's edited or failed to load.
+  aoiFile.value = "";
+  aoiError.hidden = true;
+  try {
+    const parts = geometries(JSON.parse(await file.text())).map((geometry) => ({
+      geometry,
+      bounds: coordBounds(geometry.coordinates),
+    }));
+    if (!parts.length) throw new Error("No geometries found in file.");
+    booleanIntersects ??= (await import(TURF_URL)).booleanIntersects;
+    aoi = { name: file.name, parts, keys: {} };
+  } catch (err) {
+    console.error(err);
+    aoiError.textContent = err instanceof SyntaxError ? "File is not valid JSON." : err.message;
+    aoiError.hidden = false;
+    return;
+  }
+
+  const geojson = {
+    type: "FeatureCollection",
+    features: aoi.parts.map(({ geometry }) => ({ type: "Feature", properties: {}, geometry })),
+  };
+  map.getSource(AOI_SOURCE).setData(geojson);
+  zoomToAoi();
+  showAoiState();
+  await showDataset();
+}
+
+function clearAoi() {
+  aoi = null;
+  aoiError.hidden = true;
+  map.getSource(AOI_SOURCE).setData({ type: "FeatureCollection", features: [] });
+  showAoiState();
+  return showDataset();
+}
+
+function showAoiState() {
+  aoiName.textContent = aoi?.name ?? "Choose file";
+  aoiClear.hidden = !aoi;
+  updateFiltersActive();
+}
+
+// Fit the area of interest in the part of the map left uncovered by the panel.
+function zoomToAoi() {
+  const [west, south, east, north] = aoi.parts.reduce(
+    (b, part) => [
+      Math.min(b[0], part.bounds[0]),
+      Math.min(b[1], part.bounds[1]),
+      Math.max(b[2], part.bounds[2]),
+      Math.max(b[3], part.bounds[3]),
+    ],
+    [Infinity, Infinity, -Infinity, -Infinity]
+  );
+  const padding = matchMedia("(max-width: 600px)").matches
+    ? { top: 48, right: 48, bottom: panel.offsetHeight + 24, left: 48 }
+    : { top: 48, right: 72, bottom: 48, left: panel.offsetLeft + panel.offsetWidth + 48 };
+  map.fitBounds([west, south, east, north], { padding, maxZoom: 10 });
 }
 
 map.on("style.load", () => {
@@ -324,6 +496,36 @@ map.on("load", async () => {
     },
   });
 
+  map.addSource(AOI_SOURCE, {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: [] },
+  });
+  // Dark casing under a light outline, so the area reads over any cell color.
+  map.addLayer({
+    id: "aoi-casing",
+    type: "line",
+    source: AOI_SOURCE,
+    paint: { "line-color": "#16181d", "line-width": 4, "line-opacity": 0.8 },
+  });
+  map.addLayer({
+    id: "aoi-line",
+    type: "line",
+    source: AOI_SOURCE,
+    paint: { "line-color": "#ffffff", "line-width": 2 },
+  });
+  map.addLayer({
+    id: "aoi-point",
+    type: "circle",
+    source: AOI_SOURCE,
+    filter: ["==", ["geometry-type"], "Point"],
+    paint: {
+      "circle-radius": 4,
+      "circle-color": "#ffffff",
+      "circle-stroke-color": "#16181d",
+      "circle-stroke-width": 2,
+    },
+  });
+
   populateSelect(
     datasetSelect,
     Object.entries(DATASETS).map(([id, d]) => [id, d.label]),
@@ -339,6 +541,13 @@ map.on("load", async () => {
     setMinDate("");
     applyFilter();
     minDateInput.focus();
+  });
+  aoiFile.addEventListener("change", (e) => {
+    if (e.target.files[0]) setAoi(e.target.files[0]).catch(showError);
+  });
+  aoiClear.addEventListener("click", () => {
+    clearAoi().catch(showError);
+    aoiFile.focus();
   });
 
   selectDataset(datasetId).catch(showError);

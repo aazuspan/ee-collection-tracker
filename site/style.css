@@ -118,7 +118,7 @@ input[type="date"] {
 
 .marker[hidden] { display: none; }
 
-label .input-row {
+.input-row {
   display: flex;
   gap: 4px;
   margin: 0;
@@ -126,7 +126,7 @@ label .input-row {
   color: inherit;
 }
 
-#min-date-clear {
+.clear-button {
   display: inline-flex;
   align-items: center;
   padding: 0 8px;
@@ -137,18 +137,73 @@ label .input-row {
   cursor: pointer;
 }
 
-#min-date-clear:hover { color: var(--fg); }
-#min-date-clear[hidden] { display: none; }
+.clear-button:hover { color: var(--fg); }
+.clear-button[hidden] { display: none; }
 
-#summary {
+/* Area of interest upload. */
+.field-hint {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.file-button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 5px 8px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.file-button:hover,
+.file-button:focus-within { border-color: var(--muted); }
+.file-button:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.file-button .icon { color: var(--muted); }
+
+#aoi-name {
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  font-size: inherit;
+  color: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #f28b82;
+}
+
+.error[hidden] { display: none; }
+
+#summary-items {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin: 16px 0;
+  margin: 0;
 }
 
-#summary dt { font-size: 12px; color: var(--muted); }
-#summary dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
+#summary-items dt { font-size: 12px; color: var(--muted); }
+#summary-items dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
 
 #legend-items {
   list-style: none;
@@ -297,6 +352,4 @@ a { color: var(--accent); }
     left: 0;
     right: 50px;
   }
-
-  #summary { margin-bottom: 0; }
 }

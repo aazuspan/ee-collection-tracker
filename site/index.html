@@ -44,11 +44,42 @@
             <span>Acquired on or after (UTC)</span>
             <span class="input-row">
               <input id="min-date" type="date">
-              <button id="min-date-clear" type="button" aria-label="Clear minimum date" hidden>
+              <button id="min-date-clear" class="clear-button" type="button" aria-label="Clear minimum date" hidden>
                 <svg class="icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
               </button>
             </span>
           </label>
+          <div class="field">
+            <span class="field-hint">Intersects area (GeoJSON)</span>
+            <span class="input-row">
+              <label id="aoi-pick" class="file-button">
+                <input id="aoi-file" class="visually-hidden" type="file" accept=".geojson,.json,application/geo+json,application/json">
+                <svg class="icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
+                <span id="aoi-name">Choose file</span>
+              </label>
+              <button id="aoi-clear" class="clear-button" type="button" aria-label="Clear area" hidden>
+                <svg class="icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </span>
+            <p id="aoi-error" class="error" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details id="summary" class="section" open>
+          <summary>
+            <svg class="icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5 21v-6"/><path d="M12 21V3"/><path d="M19 21V9"/></svg>
+            <h2>Summary</h2>
+            <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </summary>
+          <!-- Latest images in the cells shown, after filtering. -->
+          <dl id="summary-items">
+            <div><dt>Tiles</dt><dd id="summary-count" class="skeleton">00,000</dd></div>
+            <div><dt>Median latency</dt><dd id="summary-latency" class="skeleton">0.0 days</dd></div>
+            <div><dt>Oldest</dt><dd id="summary-oldest" class="skeleton">0000-00-00</dd></div>
+            <div><dt>Newest</dt><dd id="summary-newest" class="skeleton">0000-00-00</dd></div>
+          </dl>
         </details>
 
         <details id="legend" class="section" open>
