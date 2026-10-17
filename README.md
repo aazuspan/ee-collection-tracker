@@ -10,19 +10,19 @@ The table below shows the most recent acquisition `system:time_start` for each t
 
 | Collection ID                             | Last acquisition    | Last update         | Newest asset |
 | ----------------------------------------- | ------------------- | ------------------- | ------------ |
-| **LANDSAT/LC08/C02/T1**                   | 2026-10-13 00:57:55 | 2026-10-16 23:35:09 | 3 days       |
-| **LANDSAT/LC08/C02/T1_TOA**[^derived]     | 2026-10-13 00:57:55 | 2026-10-16 23:35:09 | 3 days       |
-| **LANDSAT/LC08/C02/T1_L2**                | 2026-10-11 23:50:21 | 2026-10-16 23:35:09 | 4 days       |
-| **LANDSAT/LC09/C02/T1**                   | 2026-10-16 02:02:00 | 2026-10-16 23:35:09 | 22 hours     |
-| **LANDSAT/LC09/C02/T1_TOA**[^derived]     | 2026-10-16 02:02:00 | 2026-10-16 23:35:09 | 22 hours     |
-| **LANDSAT/LC09/C02/T1_L2**                | 2026-10-11 23:19:19 | 2026-10-16 23:35:09 | 5 days       |
-| **COPERNICUS/S2**                         | 2026-10-16 17:33:57 | 2026-10-16 23:38:38 | 6 hours      |
-| **COPERNICUS/S2_HARMONIZED**[^derived]    | 2026-10-16 17:33:57 | 2026-10-16 23:38:38 | 6 hours      |
-| **COPERNICUS/S2_SR**                      | 2026-10-16 17:33:57 | 2026-10-16 23:38:38 | 6 hours      |
-| **COPERNICUS/S2_SR_HARMONIZED**[^derived] | 2026-10-16 17:33:57 | 2026-10-16 23:38:38 | 6 hours      |
-| **NASA/HLS/HLSS30/v002_RAW2**             | 2026-10-11 23:52:31 | 2026-10-16 23:43:58 | 4 days       |
-| **NASA/HLS/HLSS30/v002**[^derived]        | 2026-10-11 23:52:31 | 2026-10-16 23:43:58 | 4 days       |
-| **NASA/HLS/HLSL30/v002_RAW2**             | 2026-10-11 23:50:21 | 2026-10-16 23:43:58 | 4 days       |
-| **NASA/HLS/HLSL30/v002**[^derived]        | 2026-10-11 23:50:21 | 2026-10-16 23:43:58 | 4 days       |
+| **LANDSAT/LC08/C02/T1**                   | 2026-10-13 00:57:55 | 2026-10-17 23:35:07 | 4 days       |
+| **LANDSAT/LC08/C02/T1_TOA**[^derived]     | 2026-10-13 00:57:55 | 2026-10-17 23:35:07 | 4 days       |
+| **LANDSAT/LC08/C02/T1_L2**                | 2026-10-11 23:50:21 | 2026-10-17 23:35:07 | 5 days       |
+| **LANDSAT/LC09/C02/T1**                   | 2026-10-17 02:54:26 | 2026-10-17 23:35:07 | 21 hours     |
+| **LANDSAT/LC09/C02/T1_TOA**[^derived]     | 2026-10-17 02:54:26 | 2026-10-17 23:35:07 | 21 hours     |
+| **LANDSAT/LC09/C02/T1_L2**                | 2026-10-11 23:19:19 | 2026-10-17 23:35:07 | 6 days       |
+| **COPERNICUS/S2**                         | 2026-10-17 17:59:09 | 2026-10-17 23:38:33 | 6 hours      |
+| **COPERNICUS/S2_HARMONIZED**[^derived]    | 2026-10-17 17:59:09 | 2026-10-17 23:38:33 | 6 hours      |
+| **COPERNICUS/S2_SR**                      | 2026-10-17 17:54:16 | 2026-10-17 23:38:33 | 6 hours      |
+| **COPERNICUS/S2_SR_HARMONIZED**[^derived] | 2026-10-17 17:54:16 | 2026-10-17 23:38:33 | 6 hours      |
+| **NASA/HLS/HLSS30/v002_RAW2**             | 2026-10-11 23:52:31 | 2026-10-17 23:41:00 | 5 days       |
+| **NASA/HLS/HLSS30/v002**[^derived]        | 2026-10-11 23:52:31 | 2026-10-17 23:41:00 | 5 days       |
+| **NASA/HLS/HLSL30/v002_RAW2**             | 2026-10-11 23:50:21 | 2026-10-17 23:41:00 | 5 days       |
+| **NASA/HLS/HLSL30/v002**[^derived]        | 2026-10-11 23:50:21 | 2026-10-17 23:41:00 | 5 days       |
 
 [^derived]: Earth Engine derives this collection by processing another collection on-the-fly. For efficiency, only the source collection is tracked.
