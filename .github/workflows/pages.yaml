@@ -21,11 +21,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - name: Checkout
       uses: actions/checkout@v6
@@ -37,6 +34,16 @@ jobs:
       with:
         path: site
 
+  # Deploy runs as a separate job so the uploaded artifact has time to become
+  # visible to the artifacts API. Deploying in the same job immediately after
+  # upload intermittently fails with "No artifacts named github-pages found".
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
     - name: Deploy
       id: deployment
       uses: actions/deploy-pages@v5
